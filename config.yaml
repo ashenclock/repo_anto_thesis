@@ -13,7 +13,7 @@ data:
   # DOVE SI TROVANO LE TRASCRIZIONI?
   # Assicurati che questa cartella esista e contenga le sottocartelle Task_01, Task_02...
   # Dallo screenshot sembrava essere questa:
-  transcripts_root: "data/transcripts/parakeet-tdt-0.6b-v3" 
+  transcripts_root: "data/transcripts" 
   features_root: "data/features" 
   # File dei metadati e dei fold (FONDAMENTALE per l'errore che hai avuto)
   metadata_file: "data/metadata/speech_metadata.csv"
@@ -52,7 +52,7 @@ transcription:
 #                     CONFIGURAZIONE TRAINING
 # ===================================================================
 task: "classification"
-modality: "multimodal" # o "audio" o "multimodal"
+modality: "text" # o "audio" o "multimodal"
 
 labels:
   mapping:
@@ -62,7 +62,7 @@ labels:
 
 model:
   text:
-    name: "Musixmatch/umberto-commoncrawl-cased-v1"
+    name: "vinai/xphonebert-base"
     max_length: 288
     dropout: 0.1
   audio:
@@ -73,11 +73,11 @@ model:
 
 training:
   epochs: 20
-  batch_size: 2
-  learning_rate: 1.0e-5
+  batch_size: 8
+  learning_rate: 2.0e-5
   weight_decay: 0.01
   warmup_ratio: 0.1
-  early_stopping_patience: 5
+  early_stopping_patience: 10
   eval_metric: "accuracy"
 
 # 1. Scegli qui quale set di feature usare

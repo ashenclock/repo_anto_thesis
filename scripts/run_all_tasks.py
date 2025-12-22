@@ -18,193 +18,148 @@ def load_raw_config(path):
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
-def find_available_tasks(dataset_root):
-    """
-    Scansiona il dataset per trovare quali Task_XX sono disponibili.
-    Cerca dentro la cartella audio del primo soggetto che trova.
-    """
-    root = Path(dataset_root)
-    # Prendi un soggetto a caso (es. il primo folder dentro la prima diagnosi)
+def get_asr_folder_name(config_dict):
+    """Helper per ottenere il nome della cartella del modello ASR dal config."""
     try:
-        first_diag = next(root.iterdir())
-        if not first_diag.is_dir(): return []
-        first_subj = next(first_diag.iterdir())
-        
-        audio_dir = first_subj / "Audio"
-        if not audio_dir.exists():
-            return []
-    except StopIteration:
-        return []
-    
-    # Trova tutti i file wav e estrai la parte "Task_XX"
+        engine = config_dict['transcription']['engine'].lower()
+        if engine == "whisperx":
+            return f"WhisperX_{config_dict['transcription']['whisperx']['model_name']}"
+        elif engine == "nemo":
+            return config_dict['transcription']['nemo']['model_name'].split('/')[-1]
+        elif engine == "crisperwhisper":
+            return config_dict['transcription']['crisperwhisper']['model_id'].split('/')[-1]
+    except KeyError:
+        # Se la sezione transcription non c'è, ritorna un default
+        return "UnknownASR"
+    return "UnknownASR"
+
+
+def find_available_tasks(dataset_root):
+    """Scansiona il dataset per trovare quali Task_XX sono disponibili."""
+    root = Path(dataset_root)
     tasks = set()
-    for f in audio_dir.glob("*.wav"):
-        # Esempio nome: SUBJ_0001_Task_01_Mic_Shure.wav
-        parts = f.name.split('_')
-        if "Task" in parts:
-            idx = parts.index("Task")
-            if idx + 1 < len(parts):
-                task_name = f"Task_{parts[idx+1]}"
-                tasks.add(task_name)
+    try:
+        # Cerca i task in tutte le cartelle audio
+        for wav_file in root.rglob("Audio/*.wav"):
+            parts = wav_file.name.split('_')
+            if "Task" in parts:
+                idx = parts.index("Task")
+                if idx + 1 < len(parts):
+                    tasks.add(f"Task_{parts[idx+1]}")
+    except Exception:
+        pass
     
-    return sorted(list(tasks))
+    return sorted(list(tasks)) if tasks else ["Task_01"] # Fallback
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml")
     args = parser.parse_args()
 
-    # 1. Carica la configurazione base
     base_config_dict = load_raw_config(args.config)
     dataset_root = base_config_dict['data']['dataset_root']
     
-    # 2. Trova i task disponibili
     available_tasks = find_available_tasks(dataset_root)
     print(f"🔍 Task trovati nel dataset: {available_tasks}")
     
-    if not available_tasks:
-        print("❌ Nessun task trovato (controlla i nomi dei file audio). Uso il default dal config.")
-        available_tasks = [base_config_dict['data']['audio_file_pattern']]
-
-    # Dizionario per salvare i risultati finali
     final_results = []
-    
-    # Cartella dove salvare i CSV delle predizioni per l'ensemble
     results_csv_dir = Path("results_csv")
     results_csv_dir.mkdir(exist_ok=True)
 
-    # 3. Loop su ogni Task
+    # Determina il nome del modello ASR usato per le trascrizioni
+    asr_name = get_asr_folder_name(base_config_dict)
+    
     for task_name in available_tasks:
         print(f"\n{'='*40}")
         print(f"🚀 AVVIO TRAINING PER: {task_name}")
         print(f"{'='*40}")
         
-        # Clona e modifica la configurazione per questo task
         current_config_dict = deepcopy(base_config_dict)
-        
-        # A. Imposta il pattern audio corretto
         current_config_dict['data']['audio_file_pattern'] = task_name
         
-        # --- FIX NOMI CARTELLE OUTPUT ---
-        # Creiamo un nome cartella basato sulla modalità e sul modello usato
         mode = current_config_dict.get('modality', 'unknown')
         
+        # --- FIX NOMI CARTELLE OUTPUT E PATH TRASCRIZIONI ---
+        
+        # Determina il nome dell'esperimento per la cartella di output
         if mode == 'text':
-            # Prende l'ultima parte del nome modello (es. bert-base-italian...)
             model_name = current_config_dict['model']['text']['name'].split('/')[-1]
-            exp_name = f"text_{model_name}"
-            
-        elif mode == 'audio':
-            # Controlla se usa pretrained o nome custom
-            if 'pretrained' in current_config_dict['model']['audio']:
-                 model_name = current_config_dict['model']['audio']['pretrained'].split('/')[-1]
+            # Se usiamo XPhoneBERT, specifichiamolo nel nome
+            if 'xphonebert' in model_name:
+                exp_name = f"phonetic_{model_name}_ASR-{asr_name}"
             else:
-                 model_name = current_config_dict['model']['audio']['name']
-            exp_name = f"audio_{model_name}"
-            
-        elif mode == 'multimodal':
-            text_name = current_config_dict['model']['text']['name'].split('/')[-1]
-            audio_name = current_config_dict['model']['audio']['pretrained'].split('/')[-1]
-            exp_name = f"multimodal_{text_name}_{audio_name}"
+                exp_name = f"text_{model_name}_ASR-{asr_name}"
+        # ... (aggiungi logica per 'audio' e 'multimodal' se ti serve)
         else:
             exp_name = f"{mode}_experiment"
 
-        # Nuova struttura: outputs/nome_esperimento/Task_XX
+        # Path di output: outputs/nome_esperimento/Task_XX
         current_config_dict['output_dir'] = f"outputs/{exp_name}/{task_name}"
-        # --------------------------------
         
-        # B. FIX PATH TRASCRIZIONI
-        # Se stiamo usando testo/multimodale, puntiamo alla sottocartella del task
-        if 'transcripts_root' in current_config_dict['data']:
-            base_transcripts = Path(current_config_dict['data']['transcripts_root'])
-            task_transcript_dir = base_transcripts / task_name
-            current_config_dict['data']['transcripts_root'] = str(task_transcript_dir)
-            print(f"📂 Transcripts Dir: {task_transcript_dir}")
+        # --- FIX PATH TRASCRIZIONI ---
+        if mode == 'text' or mode == 'multimodal':
+            # Se usiamo XPhoneBERT, dobbiamo puntare alla cartella _phonemes
+            if "xphonebert" in current_config_dict['model']['text']['name'].lower():
+                # Path: data/transcripts/WhisperX_large-v3_phonemes/Task_01
+                transcripts_dir = Path(current_config_dict['data']['transcripts_root']) / f"{asr_name}_phonemes" / task_name
+            else:
+                # Path normale: data/transcripts/WhisperX_large-v3/Task_01
+                transcripts_dir = Path(current_config_dict['data']['transcripts_root']) / asr_name / task_name
+
+            current_config_dict['data']['transcripts_root'] = str(transcripts_dir)
+            print(f"📂 Transcripts Dir: {transcripts_dir}")
         
         print(f"📂 Output Dir:      {current_config_dict['output_dir']}")
         
-        # Crea l'oggetto Config
         config = Config(current_config_dict)
         set_seed(config.seed)
         
-        # Variabili per accumulare le metriche dei 5 fold
         fold_scores = []
+        all_task_ids, all_task_probs, all_task_labels = [], [], []
         
-        # Variabili per salvare le predizioni (per Ensemble/Stacking)
-        all_task_ids = []
-        all_task_probs = []
-        all_task_labels = []
-        
-        # Loop sui Fold (Cross Validation)
         for fold, train_df, val_df in get_data_splits(config):
             print(f"  > Training Fold {fold}...")
-            
-            # Prepara i loader specifici per questo task
             train_loader, val_loader = get_dataloaders(config, train_df, val_df)
-            
-            # Inizializza e allena
             trainer = Trainer(config, train_loader, val_loader, fold)
             
-            # --- FIX GESTIONE RETURN VALUE ---
             result = trainer.train()
             
             if isinstance(result, tuple):
                 best_metric, fold_details = result
             else:
-                best_metric = result
-                fold_details = None
+                best_metric, fold_details = result, None
 
             if best_metric is None: best_metric = 0.0
-            
             fold_scores.append(best_metric)
             print(f"  -> Fold {fold} Best Score: {best_metric:.4f}")
             
-            # Accumula predizioni se disponibili
-            if fold_details is not None:
+            if fold_details:
                 all_task_ids.extend(fold_details['ids'])
                 all_task_probs.extend(fold_details['probs'])
                 all_task_labels.extend(fold_details['labels'])
 
-        # Calcola la media per questo Task
         avg_score = np.mean(fold_scores)
         std_score = np.std(fold_scores)
-        
         print(f"\n✅ Risultato {task_name}: {avg_score:.4f} ± {std_score:.4f}")
         
-        final_results.append({
-            "Task": task_name,
-            "Avg_Score": avg_score,
-            "Std_Dev": std_score
-        })
+        final_results.append({"Task": task_name, "Avg_Score": avg_score, "Std_Dev": std_score})
         
-        # Salva le predizioni per l'ensemble
         if all_task_ids:
-            df_preds = pd.DataFrame({
-                "ID": all_task_ids,
-                "Label": all_task_labels,
-                "Prob": all_task_probs
-            })
-            # Il nome del file include anche il modello per non sovrascrivere
+            df_preds = pd.DataFrame({"ID": all_task_ids, "Label": all_task_labels, "Prob": all_task_probs})
             pred_filename = f"preds_{exp_name}_{task_name}.csv"
             pred_file = results_csv_dir / pred_filename
             df_preds.to_csv(pred_file, index=False)
             print(f"💾 Predizioni salvate in: {pred_file}")
 
-    # 4. Stampa la classifica finale
-    print("\n\n🏆 CLASSIFICA MIGLIORI TASK 🏆")
-    print(f"{'Task':<15} | {'Score Medio':<12} | {'Std Dev'}")
-    print("-" * 40)
-    
-    # Ordina dal migliore al peggiore
+    print(f"\n\n🏆 CLASSIFICA FINALE - Esperimento: {exp_name} 🏆")
     final_results.sort(key=lambda x: x['Avg_Score'], reverse=True)
     
     for res in final_results:
         print(f"{res['Task']:<15} | {res['Avg_Score']:.4f}       | {res['Std_Dev']:.4f}")
     
-    # Salva su CSV
     out_csv_name = f"results_{exp_name}.csv"
     pd.DataFrame(final_results).to_csv(out_csv_name, index=False)
-    print(f"\nRisultati salvati in '{out_csv_name}'")
+    print(f"\nRiassunto salvato in: '{out_csv_name}'")
 
 if __name__ == "__main__":
     main()

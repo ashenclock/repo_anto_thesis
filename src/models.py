@@ -152,6 +152,40 @@ class TextClassifier(nn.Module):
         else:
             emb = out.last_hidden_state[:, 0, :]
         return self.classifier(self.dropout(emb))
+class XPhoneBERTClassifier(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        model_name = config.model.text.name
+        print(f"📝 Caricamento XPhoneBERT: {model_name}")
+        self.encoder = AutoModel.from_pretrained(model_name)
+        self.dropout = nn.Dropout(config.model.text.dropout)
+        self.classifier_head = nn.Linear(
+            self.encoder.config.hidden_size,
+            get_num_classes(config)
+        )
+
+    def forward(self, batch):
+        outputs = self.encoder(
+            input_ids=batch['input_ids'], 
+            attention_mask=batch['attention_mask']
+        )
+        # Per modelli basati su RoBERTa (come XPhoneBERT), è meglio usare l'embedding del primo token
+        pooled_output = outputs.last_hidden_state[:, 0, :]
+        logits = self.classifier_head(self.dropout(pooled_output))
+        return logits
+
+# --- MODIFICA LA FUNZIONE build_model ---
+def build_model(config):
+    if config.modality == 'text':
+        # Scelta intelligente: se il nome contiene "xphonebert", usa il modello giusto
+        if "xphonebert" in config.model.text.name.lower():
+            return XPhoneBERTClassifier(config)
+        else:
+            return TextClassifier(config)
+            
+    elif config.modality == 'audio': return AudioClassifier(config)
+    elif config.modality == 'multimodal': return MultimodalClassifier(config)
+    else: raise ValueError(f"Modality {config.modality} not supported")
 
 class AudioClassifier(nn.Module):
     def __init__(self, config):

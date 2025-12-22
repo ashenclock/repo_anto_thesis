@@ -1,0 +1,114 @@
+# ===================================================================
+#                    CONFIGURAZIONE PRINCIPALE
+# ===================================================================
+
+seed: 42
+device: "cuda"
+
+# --- Percorsi dei Dati (Struttura Sicily) ---
+data:
+  # Root del dataset contenente le sottocartelle per diagnosi
+  dataset_root: "data/dataset"
+  
+  # DOVE SI TROVANO LE TRASCRIZIONI?
+  # Assicurati che questa cartella esista e contenga le sottocartelle Task_01, Task_02...
+  # Dallo screenshot sembrava essere questa:
+  transcripts_root: "data/transcripts/parakeet-tdt-0.6b-v3" 
+  features_root: "data/features" 
+  # File dei metadati e dei fold (FONDAMENTALE per l'errore che hai avuto)
+  metadata_file: "data/metadata/speech_metadata.csv"
+  folds_file: "data/metadata/dataset_folds.csv"
+  
+  # Pattern default (verrà sovrascritto automaticamente da run_all_tasks.py)
+  audio_file_pattern: "Task_01" 
+
+# ===================================================================
+#                   CONFIGURAZIONE TRASCRIZIONE (ASR)
+# ===================================================================
+transcription:
+  # Scegli: "crisperwhisper", "nemo", o "whisperx"
+  engine: "whisperx"
+  overwrite: false
+
+  # --- CrisperWhisper ---
+  crisperwhisper:
+    model_id: "nyrahealth/CrisperWhisper" 
+    batch_size: 16
+    compute_type: "float16"
+    
+  # --- NeMo ---
+  nemo:
+    model_name: "nvidia/parakeet-tdt-0.6b-v3"
+    batch_size: 2
+
+  # --- WhisperX ---
+  whisperx:
+    model_name: "large-v3"
+    batch_size: 16
+    compute_type: "float16"
+    language: "it" # Importante per dati italiani
+
+# ===================================================================
+#                     CONFIGURAZIONE TRAINING
+# ===================================================================
+task: "classification"
+modality: "multimodal" # o "audio" o "multimodal"
+
+labels:
+  mapping:
+    CTR: 0
+    #MCI: 1
+    MILD-AD: 1
+
+model:
+  text:
+    name: "Musixmatch/umberto-commoncrawl-cased-v1"
+    max_length: 288
+    dropout: 0.1
+  audio:
+    pretrained: "facebook/wav2vec2-xls-r-300m"
+    sample_rate: 16000
+    trainable_encoder: false 
+    dropout: 0.1
+
+training:
+  epochs: 20
+  batch_size: 2
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  early_stopping_patience: 5
+  eval_metric: "accuracy"
+
+# 1. Scegli qui quale set di feature usare
+feature_extraction:
+  # Opzioni: "whisper_large_v3" (Embedding Deep), "egemaps" (Acustiche classiche)
+  feature_set: "whisper_large_v3" 
+  overwrite: true
+
+# 2. Configurazione specifica per l'estrazione Embedding (Se usi whisper_large_v3)
+embedding_extraction:
+  name: "whisper_large_v3" # Deve coincidere con feature_set sopra
+  model_id: "openai/whisper-large-v3" # Modello HuggingFace da usare
+  pooling_strategy: "mean" # 'mean' media nel tempo, 'cls' primo token
+  batch_size: 16 # Riduci a 8 o 4 se vai Out of Memory (OOM)
+
+
+# --- Configurazione Modelli Tabulari ---
+tabular_model:
+  name: "xgboost" # o "svm", "lr" "xgboost"
+  
+  grids:
+    svm:
+      C: [0.1, 1, 10, 100]
+      gamma: ["scale", "auto", 0.01, 0.001]
+      kernel: ["rbf", "linear"]
+    xgboost:
+      n_estimators: [50, 100, 200]
+      max_depth: [3, 5, 7]
+      learning_rate: [0.01, 0.1, 0.2]
+      subsample: [0.8, 1.0]
+    lr:
+      C: [0.01, 0.1, 1, 10]
+      penalty: ["l1", "l2"]
+      solver: ["liblinear"]

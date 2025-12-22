@@ -1,0 +1,5 @@
+/data
+generate_context.py
+project_context.txt
+/outputs
+src/__pycache__/

@@ -5,3 +5,4 @@ project_context.txt
 src/__pycache__/
 comandi.txt
 /results_csv
+*.csv

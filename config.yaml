@@ -3,100 +3,113 @@
 # ===================================================================
 
 seed: 42
-device: "cuda"
+device: "cuda"  # Usa "cpu" solo se non hai GPU
 
-# --- Percorsi dei Dati (Struttura Sicily) ---
+# --- Percorsi dei Dati ---
 data:
-  # Root del dataset contenente le sottocartelle per diagnosi
+  # Root del dataset contenente le sottocartelle per diagnosi (CTR, MCI, AD)
   dataset_root: "data/dataset"
   
-  # DOVE SI TROVANO LE TRASCRIZIONI?
-  # Assicurati che questa cartella esista e contenga le sottocartelle Task_01, Task_02...
-  # Dallo screenshot sembrava essere questa:
-  transcripts_root: "data/transcripts" 
-  features_root: "data/features" 
-  # File dei metadati e dei fold (FONDAMENTALE per l'errore che hai avuto)
+  # File metadati generato da prepare_dataset.py (contiene i path audio per tutti i task)
   metadata_file: "data/metadata/speech_metadata.csv"
+  
+  # File dei fold per la Cross-Validation
   folds_file: "data/metadata/dataset_folds.csv"
   
-  # Pattern default (verrà sovrascritto automaticamente da run_all_tasks.py)
-  audio_file_pattern: "Task_01" 
+  # Cartella dove cercare le trascrizioni (o i fonemi)
+  # NOTA: Se usi XPhoneBERT, questo deve puntare alla cartella _phonemes!
+  transcripts_root: "data/transcripts"
+  # Se usi UmBERTo (testo normale), usa: "data/transcripts/WhisperX_large-v3"
+  
+  # Cartella dove salvare/caricare le feature tabulari (CSV)
+  features_root: "data/features"
+  
+  # Pattern default (viene sovrascritto dagli script automatici run_all_tasks.py)
+  audio_file_pattern: "Task_01"
 
 # ===================================================================
-#                   CONFIGURAZIONE TRASCRIZIONE (ASR)
+#                CONFIGURAZIONE ESPERIMENTO (IL CERVELLO)
 # ===================================================================
-transcription:
-  # Scegli: "crisperwhisper", "nemo", o "whisperx"
-  engine: "whisperx"
-  overwrite: false
 
-  # --- CrisperWhisper ---
-  crisperwhisper:
-    model_id: "nyrahealth/CrisperWhisper" 
-    batch_size: 16
-    compute_type: "float16"
-    
-  # --- NeMo ---
-  nemo:
-    model_name: "nvidia/parakeet-tdt-0.6b-v3"
-    batch_size: 2
+# Scegli il tipo di esperimento:
+# 1. "text" -> Solosto (es. XPhoneBERT o UmBERTo)
+# 2. "audio" -> Solo Audio (es. Wav2Vec2)
+# 3. "multimodal" -> Fusione semplice (Concatenazione)
+# 4. "multimodal_cross_attention" -> SOTA Fusione (Cross-Attention)
+modality: "multimodal_cross_attention"
 
-  # --- WhisperX ---
-  whisperx:
-    model_name: "large-v3"
-    batch_size: 16
-    compute_type: "float16"
-    language: "it" # Importante per dati italiani
-
-# ===================================================================
-#                     CONFIGURAZIONE TRAINING
-# ===================================================================
 task: "classification"
-modality: "text" # o "audio" o "multimodal"
 
 labels:
+  scheme: "binary_strict"
   mapping:
     CTR: 0
-    #MCI: 1
+    # MCI: 1      <-- Scommenta per Binary Inclusive
     MILD-AD: 1
+
+# ===================================================================
+#                      PARAMETRI DEI MODELLI
+# ===================================================================
 
 model:
   text:
-    name: "vinai/xphonebert-base"
-    max_length: 288
-    dropout: 0.1
+    # Opzione A: Fonemi (XPhoneBERT) - Ottimo per disfluenze
+    name: "dbmdz/bert-base-italian-xxl-cased"
+    # Opzione B: Semantica (UmBERTo) - Ottimo per contenuto
+    # name: "Musixmatch/umberto-commoncrawl-cased-v1"
+    
+    max_length: 288 # I fonemi occupano più token delle parole
+    dropout: 0.3
+
   audio:
-    pretrained: "facebook/wav2vec2-xls-r-300m"
+    # Modello SSL per l'audio
+    pretrained: "jonatasgrosman/wav2vec2-large-xlsr-53-italian"
     sample_rate: 16000
+    
+    # False = Freeze (veloce, meno memoria). True = Fine-Tuning (SOTA, lento).
+    # Per il multimodale con batch size basso, meglio False inizialmente.
     trainable_encoder: false 
-    dropout: 0.1
+    dropout: 0.3
+
+# ===================================================================
+#                    PARAMETRI DI ADDESTRAMENTO
+# ===================================================================
 
 training:
   epochs: 20
+  # Batch Size: 
+  # - 16 per Solo Testo (XPhoneBERT)
+  # - 4 per Multimodale Cross-Attention (per evitare Out of Memory)
   batch_size: 8
-  learning_rate: 2.0e-5
+  learning_rate:  2.0e-5  # 2e-5 standard per BERT, 1e-4 per Audio/Multimodale
   weight_decay: 0.01
   warmup_ratio: 0.1
   early_stopping_patience: 10
-  eval_metric: "accuracy"
+  gradient_checkpointing: false 
+  gradient_accumulation_steps: 1
 
-# 1. Scegli qui quale set di feature usare
+  eval_metric: "f1" # o "f1"
+
+# ===================================================================
+#             CONFIGURAZIONE ESTRAZIONE FEATURE (Tabular)
+# ===================================================================
+# Sezione usata da: scripts/extract_features.py e scripts/extract_embeddings.py
+
 feature_extraction:
-  # Opzioni: "whisper_large_v3" (Embedding Deep), "egemaps" (Acustiche classiche)
+  # Opzioni: "whisper_large_v3", "egemaps", "compare"
   feature_set: "whisper_large_v3" 
   overwrite: true
 
-# 2. Configurazione specifica per l'estrazione Embedding (Se usi whisper_large_v3)
+# Configurazione specifica per quando estrai gli embedding di Whisper
 embedding_extraction:
-  name: "whisper_large_v3" # Deve coincidere con feature_set sopra
-  model_id: "openai/whisper-large-v3" # Modello HuggingFace da usare
-  pooling_strategy: "mean" # 'mean' media nel tempo, 'cls' primo token
-  batch_size: 16 # Riduci a 8 o 4 se vai Out of Memory (OOM)
+  name: "whisper_large_v3"
+  model_id: "openai/whisper-large-v3"
+  pooling_strategy: "mean"
+  batch_size: 16 # Batch size per l'estrazione (solo inferenza, può essere alto)
 
-
-# --- Configurazione Modelli Tabulari ---
+# Configurazione per il training dei modelli classici (run_tabular_all_tasks.py)
 tabular_model:
-  name: "xgboost" # o "svm", "lr" "xgboost"
+  name: "xgboost" # Opzioni: "xgboost", "svm", "lr"
   
   grids:
     svm:
@@ -112,3 +125,29 @@ tabular_model:
       C: [0.01, 0.1, 1, 10]
       penalty: ["l1", "l2"]
       solver: ["liblinear"]
+
+# ===================================================================
+#                   CONFIGURAZIONE TRASCRIZIONE
+# ===================================================================
+# Sezione usata da: scripts/transcribe_all.py
+
+transcription:
+  engine: "whisperx"
+  overwrite: false
+
+  whisperx:
+    model_name: "large-v3"
+    batch_size: 16
+    compute_type: "float16"
+    language: "it"
+    
+  nemo:
+    model_name: "nvidia/parakeet-tdt-0.6b-v3"
+    batch_size: 2
+    
+  crisperwhisper:
+    model_id: "nyrahealth/CrisperWhisper" 
+    batch_size: 16
+    compute_type: "float16"
+
+score_generation_models: []

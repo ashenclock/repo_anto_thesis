@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from copy import deepcopy
 
-# Aggiunge la root al path per importare i moduli src
+# Aggiungi root al path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import Config
@@ -19,7 +19,6 @@ def load_raw_config(path):
         return yaml.safe_load(f)
 
 def get_asr_folder_name(config_dict):
-    """Helper per ottenere il nome della cartella del modello ASR dal config."""
     try:
         engine = config_dict['transcription']['engine'].lower()
         if engine == "whisperx":
@@ -29,27 +28,21 @@ def get_asr_folder_name(config_dict):
         elif engine == "crisperwhisper":
             return config_dict['transcription']['crisperwhisper']['model_id'].split('/')[-1]
     except KeyError:
-        # Se la sezione transcription non c'è, ritorna un default
         return "UnknownASR"
     return "UnknownASR"
 
-
 def find_available_tasks(dataset_root):
-    """Scansiona il dataset per trovare quali Task_XX sono disponibili."""
     root = Path(dataset_root)
     tasks = set()
     try:
-        # Cerca i task in tutte le cartelle audio
         for wav_file in root.rglob("Audio/*.wav"):
             parts = wav_file.name.split('_')
             if "Task" in parts:
                 idx = parts.index("Task")
                 if idx + 1 < len(parts):
                     tasks.add(f"Task_{parts[idx+1]}")
-    except Exception:
-        pass
-    
-    return sorted(list(tasks)) if tasks else ["Task_01"] # Fallback
+    except Exception: pass
+    return sorted(list(tasks)) if tasks else ["Task_01"]
 
 def main():
     parser = argparse.ArgumentParser()
@@ -60,106 +53,124 @@ def main():
     dataset_root = base_config_dict['data']['dataset_root']
     
     available_tasks = find_available_tasks(dataset_root)
-    print(f"🔍 Task trovati nel dataset: {available_tasks}")
+    print(f"🔍 Task trovati: {available_tasks}")
     
-    final_results = []
     results_csv_dir = Path("results_csv")
     results_csv_dir.mkdir(exist_ok=True)
-
-    # Determina il nome del modello ASR usato per le trascrizioni
-    asr_name = get_asr_folder_name(base_config_dict)
     
+    final_summary = []
+    
+    # Nome esperimento
+    modality = base_config_dict.get('modality', 'unknown')
+    if modality == 'text' or 'multimodal' in modality:
+        if "xphonebert" in base_config_dict['model']['text']['name']:
+             exp_name = f"phonetic_xphonebert"
+        else:
+             exp_name = f"text_{base_config_dict['model']['text']['name'].split('/')[-1]}"
+    else:
+        exp_name = f"audio_{base_config_dict['model']['audio']['pretrained'].split('/')[-1]}"
+    
+    if 'multimodal' in modality:
+        exp_name = f"multimodal_{exp_name}"
+
+    asr_base_name = get_asr_folder_name(base_config_dict)
+
     for task_name in available_tasks:
-        print(f"\n{'='*40}")
-        print(f"🚀 AVVIO TRAINING PER: {task_name}")
-        print(f"{'='*40}")
+        print(f"\n{'='*60}")
+        print(f"🚀 AVVIO TRAINING: {task_name} | Exp: {exp_name}")
+        print(f"{'='*60}")
         
         current_config_dict = deepcopy(base_config_dict)
         current_config_dict['data']['audio_file_pattern'] = task_name
         
-        mode = current_config_dict.get('modality', 'unknown')
-        
-        # --- FIX NOMI CARTELLE OUTPUT E PATH TRASCRIZIONI ---
-        
-        # Determina il nome dell'esperimento per la cartella di output
-        if mode == 'text':
-            model_name = current_config_dict['model']['text']['name'].split('/')[-1]
-            # Se usiamo XPhoneBERT, specifichiamolo nel nome
-            if 'xphonebert' in model_name:
-                exp_name = f"phonetic_{model_name}_ASR-{asr_name}"
-            else:
-                exp_name = f"text_{model_name}_ASR-{asr_name}"
-        # ... (aggiungi logica per 'audio' e 'multimodal' se ti serve)
-        else:
-            exp_name = f"{mode}_experiment"
+        # --- PATH TRASCRIZIONI ---
+        if 'text' in modality or 'multimodal' in modality:
+            base_transcripts_root = Path(base_config_dict['data']['transcripts_root'])
+            # Se è path completo, resetta alla base
+            if "Task_" in str(base_transcripts_root):
+                 base_transcripts_root = base_transcripts_root.parent.parent
 
-        # Path di output: outputs/nome_esperimento/Task_XX
+            # Folder name (es. WhisperX_large-v3 o WhisperX_large-v3_phonemes)
+            if "xphonebert" in base_config_dict['model']['text']['name']:
+                folder_name = f"{asr_base_name}_phonemes"
+            else:
+                folder_name = asr_base_name
+            
+            target_transcript_dir = base_transcripts_root / folder_name / task_name
+            
+            if not target_transcript_dir.exists():
+                # Fallback: prova a cercarlo dentro transcripts_root se l'utente ha messo il path parziale
+                fallback = Path("data/transcripts") / folder_name / task_name
+                if fallback.exists():
+                    target_transcript_dir = fallback
+                else:
+                    print(f"❌ Trascrizioni non trovate: {target_transcript_dir}")
+                    continue
+            
+            current_config_dict['data']['transcripts_root'] = str(target_transcript_dir)
+        
         current_config_dict['output_dir'] = f"outputs/{exp_name}/{task_name}"
-        
-        # --- FIX PATH TRASCRIZIONI ---
-        if mode == 'text' or mode == 'multimodal':
-            # Se usiamo XPhoneBERT, dobbiamo puntare alla cartella _phonemes
-            if "xphonebert" in current_config_dict['model']['text']['name'].lower():
-                # Path: data/transcripts/WhisperX_large-v3_phonemes/Task_01
-                transcripts_dir = Path(current_config_dict['data']['transcripts_root']) / f"{asr_name}_phonemes" / task_name
-            else:
-                # Path normale: data/transcripts/WhisperX_large-v3/Task_01
-                transcripts_dir = Path(current_config_dict['data']['transcripts_root']) / asr_name / task_name
-
-            current_config_dict['data']['transcripts_root'] = str(transcripts_dir)
-            print(f"📂 Transcripts Dir: {transcripts_dir}")
-        
-        print(f"📂 Output Dir:      {current_config_dict['output_dir']}")
         
         config = Config(current_config_dict)
         set_seed(config.seed)
         
-        fold_scores = []
-        all_task_ids, all_task_probs, all_task_labels = [], [], []
-        
-        for fold, train_df, val_df in get_data_splits(config):
-            print(f"  > Training Fold {fold}...")
-            train_loader, val_loader = get_dataloaders(config, train_df, val_df)
-            trainer = Trainer(config, train_loader, val_loader, fold)
-            
-            result = trainer.train()
-            
-            if isinstance(result, tuple):
-                best_metric, fold_details = result
-            else:
-                best_metric, fold_details = result, None
+        fold_metrics_list = []
+        all_ids, all_probs, all_labels = [], [], []
 
-            if best_metric is None: best_metric = 0.0
-            fold_scores.append(best_metric)
-            print(f"  -> Fold {fold} Best Score: {best_metric:.4f}")
+        try:
+            for fold, train_df, val_df in get_data_splits(config):
+                print(f"\n  [Fold {fold}] Training...")
+                train_loader, val_loader = get_dataloaders(config, train_df, val_df)
+                
+                if len(train_loader) == 0: continue
+
+                trainer = Trainer(config, train_loader, val_loader, fold)
+                best_metrics, fold_details = trainer.train()
+
+                if best_metrics:
+                    fold_metrics_list.append(best_metrics)
+                
+                if fold_details:
+                    all_ids.extend(fold_details['ids'])
+                    all_probs.extend(fold_details['probs'])
+                    all_labels.extend(fold_details['labels'])
+        
+        except Exception as e:
+            print(f"❌ Errore critico nel task {task_name}: {e}")
+            import traceback; traceback.print_exc()
+            continue
+
+        # --- CALCOLO STATISTICHE FINALI (Mean ± Std) ---
+        if fold_metrics_list:
+            df_metrics = pd.DataFrame(fold_metrics_list)
+            means = df_metrics.mean()
+            stds = df_metrics.std()
             
-            if fold_details:
-                all_task_ids.extend(fold_details['ids'])
-                all_task_probs.extend(fold_details['probs'])
-                all_task_labels.extend(fold_details['labels'])
-
-        avg_score = np.mean(fold_scores)
-        std_score = np.std(fold_scores)
-        print(f"\n✅ Risultato {task_name}: {avg_score:.4f} ± {std_score:.4f}")
+            print(f"\n📊 RISULTATI AGGREGATI {task_name} (5 Folds):")
+            print("-" * 50)
+            for metric in means.index:
+                print(f"{metric.capitalize():<15}: {means[metric]:.4f} ± {stds[metric]:.4f}")
+            print("-" * 50)
+            
+            res_entry = {"Task": task_name}
+            for metric in means.index:
+                res_entry[f"{metric}_mean"] = means[metric]
+                res_entry[f"{metric}_std"] = stds[metric]
+            final_summary.append(res_entry)
         
-        final_results.append({"Task": task_name, "Avg_Score": avg_score, "Std_Dev": std_score})
-        
-        if all_task_ids:
-            df_preds = pd.DataFrame({"ID": all_task_ids, "Label": all_task_labels, "Prob": all_task_probs})
-            pred_filename = f"preds_{exp_name}_{task_name}.csv"
-            pred_file = results_csv_dir / pred_filename
-            df_preds.to_csv(pred_file, index=False)
-            print(f"💾 Predizioni salvate in: {pred_file}")
+        # Salvataggio CSV Predizioni
+        if all_ids:
+            df_preds = pd.DataFrame({"ID": all_ids, "Label": all_labels, "Prob": all_probs})
+            out_file = results_csv_dir / f"preds_{exp_name}_{task_name}.csv"
+            df_preds.to_csv(out_file, index=False)
+            print(f"💾 Predizioni salvate in: {out_file}")
 
-    print(f"\n\n🏆 CLASSIFICA FINALE - Esperimento: {exp_name} 🏆")
-    final_results.sort(key=lambda x: x['Avg_Score'], reverse=True)
-    
-    for res in final_results:
-        print(f"{res['Task']:<15} | {res['Avg_Score']:.4f}       | {res['Std_Dev']:.4f}")
-    
-    out_csv_name = f"results_{exp_name}.csv"
-    pd.DataFrame(final_results).to_csv(out_csv_name, index=False)
-    print(f"\nRiassunto salvato in: '{out_csv_name}'")
+    # --- SALVATAGGIO SUMMARY GENERALE ---
+    if final_summary:
+        df_summary = pd.DataFrame(final_summary)
+        summary_path = results_csv_dir / f"summary_results_{exp_name}.csv"
+        df_summary.to_csv(summary_path, index=False)
+        print(f"\n🏆 Summary completo salvato in: {summary_path}")
 
 if __name__ == "__main__":
     main()

@@ -1,211 +1,212 @@
+# FILE: ./src/models.py
+
 import torch
 import torch.nn as nn
-from transformers import AutoModel, AutoFeatureExtractor, Wav2Vec2Model, WhisperModel
-from speechbrain.pretrained import EncoderClassifier
+import torch.nn.functional as F
+from transformers import AutoModel
 
-# --- HELPER PER GESTIRE IL CONFIG ---
-def get_num_classes(config):
-    """Estrae il numero di classi dal config in modo sicuro."""
-    if hasattr(config.labels.mapping, 'to_dict'):
-        mapping = config.labels.mapping.to_dict()
-    else:
-        mapping = config.labels.mapping
-    
-    num = len(set(mapping.values()))
-    # Se per qualche motivo (es. binary strict) c'è 1 sola label nel mapping, 
-    # impostiamo comunque 2 output per la classificazione binaria
-    if num < 2: 
-        return 2
-    return num
+# ==============================================================================
+# 1. BLOCCHI COMUNI (Pooling & Gating)
+# ==============================================================================
 
-# --- 1. ENCODER AUDIO UNIVERSALE (SSL o ECAPA) ---
-class AudioEncoderWrapper(nn.Module):
-    def __init__(self, config):
+class AttentivePooling(nn.Module):
+    """Pooling pesato: impara quali parti della sequenza sono importanti."""
+    def __init__(self, dim):
         super().__init__()
-        self.model_name = config.model.audio.pretrained
-        self.device = config.device
-        self.is_ssl = False
-        self.is_whisper = False
-        self.output_dim = 0
+        self.attn = nn.Linear(dim, 1)
 
-        # CASO A: Modelli HuggingFace SSL (Wav2Vec2, HuBERT, Whisper)
-        if "/" in self.model_name and "speechbrain" not in self.model_name:
-            self.is_ssl = True
-            print(f"🔊 Caricamento Audio SSL: {self.model_name}")
-            
-            if "whisper" in self.model_name.lower():
-                self.model = WhisperModel.from_pretrained(self.model_name).encoder
-                self.feature_extractor = AutoFeatureExtractor.from_pretrained(self.model_name)
-                self.is_whisper = True
-            else:
-                # Wav2Vec2, XLS-R, etc.
-                self.model = Wav2Vec2Model.from_pretrained(self.model_name)
-                self.is_whisper = False
-            
-            self.output_dim = self.model.config.hidden_size
-            
-            # Freeze opzionale
-            if not config.model.audio.trainable_encoder:
-                for param in self.model.parameters(): param.requires_grad = False
-                
-        # CASO B: SpeechBrain (ECAPA-TDNN)
-        else:
-            print(f"🔊 Caricamento Audio SpeechBrain: {self.model_name}")
-            self.model = EncoderClassifier.from_hparams(
-                source=self.model_name,
-                run_opts={"device": self.device}
-            )
-            self.output_dim = 192 # ECAPA standard
-            if not config.model.audio.trainable_encoder:
-                for param in self.model.parameters(): param.requires_grad = False
+    def forward(self, x, mask=None):
+        # x: [Batch, Seq, Dim]
+        scores = self.attn(x).squeeze(-1) # [Batch, Seq]
+        if mask is not None:
+            # Mask: 1=Valido, 0=Padding.
+            # Mettiamo -inf dove c'è padding per annullare il softmax
+            scores = scores.masked_fill(mask == 0, -1e9)
+        
+        weights = F.softmax(scores, dim=1).unsqueeze(-1)
+        return torch.sum(x * weights, dim=1) # [Batch, Dim]
 
-    def forward(self, waveforms):
-        if self.is_ssl:
-            if self.is_whisper:
-                # Whisper richiede feature extraction Mel
-                wavs_cpu = [w.cpu().numpy() for w in waveforms]
-                inputs = self.feature_extractor(wavs_cpu, sampling_rate=16000, return_tensors="pt", padding=True)
-                feats = inputs.input_features.to(self.device)
-                out = self.model(feats).last_hidden_state
-            else:
-                # Wav2Vec2 accetta raw audio
-                out = self.model(waveforms).last_hidden_state
-            
-            # Mean Pooling temporale [Batch, Time, Dim] -> [Batch, Dim]
-            return torch.mean(out, dim=1)
-        else:
-            # ECAPA-TDNN
-            # Gestione gradiente manuale per SpeechBrain
-            is_trainable = any(p.requires_grad for p in self.model.parameters())
-            with torch.set_grad_enabled(is_trainable):
-                emb = self.model.encode_batch(waveforms)
-            return emb.squeeze(1)
-
-# --- 2. MODELLO MULTIMODALE COMPLETO ---
-class MultimodalClassifier(nn.Module):
-    def __init__(self, config):
+class GatedMultimodalUnit(nn.Module):
+    """Fusione intelligente che impara a pesare Testo vs Audio."""
+    def __init__(self, dim):
         super().__init__()
-        
-        # 1. Text Encoder (UmBERTo / BERT)
-        print(f"📝 Caricamento Text Encoder: {config.model.text.name}")
-        self.text_encoder = AutoModel.from_pretrained(config.model.text.name)
-        text_dim = self.text_encoder.config.hidden_size
-        
-        # 2. Audio Encoder (Wrapper Intelligente)
-        self.audio_encoder = AudioEncoderWrapper(config)
-        audio_dim = self.audio_encoder.output_dim
-        
-        print(f"🔗 Fusion Dimensions: Text({text_dim}) + Audio({audio_dim})")
-        
-        # 3. Classificatore
-        fusion_dim = text_dim + audio_dim
-        
-        # --- FIX: Uso la funzione helper ---
-        num_classes = get_num_classes(config)
+        self.linear_text = nn.Linear(dim, dim)
+        self.linear_audio = nn.Linear(dim, dim)
+        self.sigmoid_gate = nn.Linear(dim * 2, 1)
 
-        self.dropout = nn.Dropout(config.model.text.dropout)
-        
-        self.classifier = nn.Sequential(
-            nn.Linear(fusion_dim, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(512, num_classes)
-        )
+    def forward(self, h_text, h_audio):
+        h_t = torch.tanh(self.linear_text(h_text))
+        h_a = torch.tanh(self.linear_audio(h_audio))
+        concat = torch.cat([h_text, h_audio], dim=1)
+        z = torch.sigmoid(self.sigmoid_gate(concat))
+        return z * h_t + (1 - z) * h_a
 
-    def forward(self, batch):
-        # Text Forward
-        t_out = self.text_encoder(
-            input_ids=batch['input_ids'], 
-            attention_mask=batch['attention_mask']
-        )
-        # UmBERTo/RoBERTa non ha pooler_output pre-addestrato affidabile come BERT,
-        # spesso si usa il token <s> (indice 0) o il mean pooling.
-        # Qui usiamo il primo token (CLS/Start)
-        text_emb = t_out.last_hidden_state[:, 0, :] 
-        
-        # Audio Forward
-        audio_emb = self.audio_encoder(batch['waveform'])
-        
-        # Concatenazione
-        combined = torch.cat((text_emb, audio_emb), dim=1)
-        
-        logits = self.classifier(self.dropout(combined))
-        return logits
+def get_audio_dim(config):
+    """Helper per capire la dimensione dell'audio in base al modello scelto."""
+    name = config.model.audio.pretrained.lower()
+    if "whisper-large" in name: return 1280
+    if "xls-r" in name or "large" in name: return 1024
+    return 768
 
-# --- CLASSI MODELLO SINGOLO (Per completezza) ---
+# ==============================================================================
+# 2. MODELLO SOLO TESTO (Text Baseline)
+# ==============================================================================
+
 class TextClassifier(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.bert = AutoModel.from_pretrained(config.model.text.name)
+        self.encoder = AutoModel.from_pretrained(config.model.text.name)
+        dim = self.encoder.config.hidden_size
         self.dropout = nn.Dropout(config.model.text.dropout)
         
-        # --- FIX: Uso la funzione helper ---
-        num_classes = get_num_classes(config)
+        # Pooling attenzionale (meglio del semplice CLS token)
+        self.pooler = AttentivePooling(dim)
         
-        self.classifier = nn.Linear(self.bert.config.hidden_size, num_classes)
-
-    def forward(self, batch):
-        out = self.bert(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
-        if hasattr(out, 'pooler_output') and out.pooler_output is not None:
-            emb = out.pooler_output
-        else:
-            emb = out.last_hidden_state[:, 0, :]
-        return self.classifier(self.dropout(emb))
-class XPhoneBERTClassifier(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        model_name = config.model.text.name
-        print(f"📝 Caricamento XPhoneBERT: {model_name}")
-        self.encoder = AutoModel.from_pretrained(model_name)
-        self.dropout = nn.Dropout(config.model.text.dropout)
-        self.classifier_head = nn.Linear(
-            self.encoder.config.hidden_size,
-            get_num_classes(config)
+        self.classifier = nn.Sequential(
+            nn.Linear(dim, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            self.dropout,
+            nn.Linear(128, 2)
         )
 
     def forward(self, batch):
-        outputs = self.encoder(
-            input_ids=batch['input_ids'], 
-            attention_mask=batch['attention_mask']
-        )
-        # Per modelli basati su RoBERTa (come XPhoneBERT), è meglio usare l'embedding del primo token
-        pooled_output = outputs.last_hidden_state[:, 0, :]
-        logits = self.classifier_head(self.dropout(pooled_output))
-        return logits
+        # batch['input_ids']: [B, Seq]
+        out = self.encoder(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'])
+        seq = out.last_hidden_state
+        
+        pooled = self.pooler(seq, mask=batch['attention_mask']) # [B, Dim]
+        pooled = self.dropout(pooled)
+        
+        return self.classifier(pooled)
 
-# --- MODIFICA LA FUNZIONE build_model ---
-def build_model(config):
-    if config.modality == 'text':
-        # Scelta intelligente: se il nome contiene "xphonebert", usa il modello giusto
-        if "xphonebert" in config.model.text.name.lower():
-            return XPhoneBERTClassifier(config)
-        else:
-            return TextClassifier(config)
-            
-    elif config.modality == 'audio': return AudioClassifier(config)
-    elif config.modality == 'multimodal': return MultimodalClassifier(config)
-    else: raise ValueError(f"Modality {config.modality} not supported")
+# ==============================================================================
+# 3. MODELLO SOLO AUDIO (Audio Baseline)
+# ==============================================================================
 
 class AudioClassifier(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.encoder = AudioEncoderWrapper(config)
+        # Qui assumiamo di ricevere già le feature estratte (Tensor [B, Seq, Dim])
+        # dal dataloader (pre-computate), quindi non carichiamo Wav2Vec2 intero per risparmiare RAM.
+        # Se volessi fare fine-tuning dell'audio, dovresti caricare Wav2Vec2Model qui.
         
-        # --- FIX: Uso la funzione helper ---
-        num_classes = get_num_classes(config)
+        dim = get_audio_dim(config)
+        self.dropout = nn.Dropout(config.model.audio.dropout)
+        
+        # Proiezione per stabilizzare
+        self.proj = nn.Linear(dim, 256)
+        
+        self.pooler = AttentivePooling(256)
         
         self.classifier = nn.Sequential(
-            nn.Dropout(config.model.audio.dropout),
-            nn.Linear(self.encoder.output_dim, num_classes)
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            self.dropout,
+            nn.Linear(128, 2)
         )
-    def forward(self, batch):
-        emb = self.encoder(batch['waveform'])
-        return self.classifier(emb)
 
-# Factory
+    def forward(self, batch):
+        x = batch['audio_features'].float() # [B, Seq, Dim]
+        x = F.gelu(self.proj(x))            # [B, Seq, 256]
+        
+        # Audio non ha mask esplicita nel tuo dataset (è padded a 0), 
+        # AttentivePooling gestisce bene se impara che 0 non è importante.
+        pooled = self.pooler(x)             
+        pooled = self.dropout(pooled)
+        
+        return self.classifier(pooled)
+
+# ==============================================================================
+# 4. MODELLO MULTIMODALE SOTA (Co-Attention + Gated Fusion)
+# ==============================================================================
+
+class SotaMultimodalClassifier(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        
+        # Encoders
+        self.text_encoder = AutoModel.from_pretrained(config.model.text.name)
+        text_dim = self.text_encoder.config.hidden_size
+        audio_dim = get_audio_dim(config)
+        
+        self.common_dim = 256
+        dropout = config.model.text.dropout
+
+        # Proiezioni
+        self.text_proj = nn.Linear(text_dim, self.common_dim)
+        self.audio_proj = nn.Linear(audio_dim, self.common_dim)
+        self.dropout_layer = nn.Dropout(dropout)
+
+        # Co-Attention
+        self.cross_attn_T_A = nn.MultiheadAttention(self.common_dim, num_heads=4, batch_first=True, dropout=dropout)
+        self.cross_attn_A_T = nn.MultiheadAttention(self.common_dim, num_heads=4, batch_first=True, dropout=dropout)
+        
+        self.norm_t = nn.LayerNorm(self.common_dim)
+        self.norm_a = nn.LayerNorm(self.common_dim)
+
+        # Pooling
+        self.text_pooler = AttentivePooling(self.common_dim)
+        self.audio_pooler = AttentivePooling(self.common_dim)
+
+        # Gated Fusion
+        self.fusion_gate = GatedMultimodalUnit(self.common_dim)
+
+        # Classificatore
+        self.classifier = nn.Sequential(
+            nn.Linear(self.common_dim, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(128, 2)
+        )
+
+    def forward(self, batch):
+        # 1. Feature Raw
+        t_raw = self.text_encoder(input_ids=batch['input_ids'], attention_mask=batch['attention_mask']).last_hidden_state
+        a_raw = batch['audio_features'].float()
+        
+        # 2. Proiezione
+        t_emb = self.dropout_layer(F.gelu(self.text_proj(t_raw)))
+        a_emb = self.dropout_layer(F.gelu(self.audio_proj(a_raw)))
+
+        # 3. Co-Attention
+        t_fused, _ = self.cross_attn_T_A(query=t_emb, key=a_emb, value=a_emb)
+        t_final = self.norm_t(t_emb + t_fused)
+        
+        key_padding_mask = (batch['attention_mask'] == 0)
+        a_fused, _ = self.cross_attn_A_T(query=a_emb, key=t_emb, value=t_emb, key_padding_mask=key_padding_mask)
+        a_final = self.norm_a(a_emb + a_fused)
+
+        # 4. Pooling
+        t_vec = self.text_pooler(t_final, mask=batch['attention_mask'])
+        a_vec = self.audio_pooler(a_final)
+
+        # 5. Fusion
+        fused_vec = self.fusion_gate(t_vec, a_vec)
+
+        # 6. Logits
+        return self.classifier(fused_vec)
+
+# ==============================================================================
+# 5. BUILDER (Lo switch nel Config)
+# ==============================================================================
+
 def build_model(config):
-    if config.modality == 'text': return TextClassifier(config)
-    elif config.modality == 'audio': return AudioClassifier(config)
-    elif config.modality == 'multimodal': return MultimodalClassifier(config)
-    else: raise ValueError(f"Modality {config.modality} not supported")
+    mode = config.modality.lower()
+    
+    if mode == "text":
+        print("🏗️  Building TEXT-ONLY Model")
+        return TextClassifier(config)
+    
+    elif mode == "audio":
+        print("🏗️  Building AUDIO-ONLY Model")
+        return AudioClassifier(config)
+    
+    elif "multimodal" in mode:
+        print("🏗️  Building MULTIMODAL SOTA Model (Co-Attention)")
+        return SotaMultimodalClassifier(config)
+    
+    else:
+        raise ValueError(f"Modalità '{mode}' non riconosciuta in build_model")

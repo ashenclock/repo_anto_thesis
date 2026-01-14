@@ -9,6 +9,10 @@ class Config:
             else:
                 setattr(self, key, value)
 
+    # --- FIX: Aggiunto metodo get per compatibilità ---
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
     def __repr__(self):
         return str(self.__dict__)
 

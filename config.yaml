@@ -18,7 +18,7 @@ data:
   
   # Cartella dove cercare le trascrizioni (o i fonemi)
   # NOTA: Se usi XPhoneBERT, questo deve puntare alla cartella _phonemes!
-  transcripts_root: "data/transcripts"
+  transcripts_root: "data/transcripts/parakeet-tdt-0.6b-v3"
   # Se usi UmBERTo (testo normale), usa: "data/transcripts/WhisperX_large-v3"
   
   # Cartella dove salvare/caricare le feature tabulari (CSV)
@@ -54,7 +54,7 @@ labels:
 model:
   text:
     # Opzione A: Fonemi (XPhoneBERT) - Ottimo per disfluenze
-    name: "dbmdz/bert-base-italian-xxl-cased"
+    name: "Musixmatch/umberto-commoncrawl-cased-v1"
     # Opzione B: Semantica (UmBERTo) - Ottimo per contenuto
     # name: "Musixmatch/umberto-commoncrawl-cased-v1"
     
@@ -69,7 +69,7 @@ model:
     # False = Freeze (veloce, meno memoria). True = Fine-Tuning (SOTA, lento).
     # Per il multimodale con batch size basso, meglio False inizialmente.
     trainable_encoder: false 
-    dropout: 0.3
+    dropout: 0.1
 
 # ===================================================================
 #                    PARAMETRI DI ADDESTRAMENTO
@@ -80,7 +80,7 @@ training:
   # Batch Size: 
   # - 16 per Solo Testo (XPhoneBERT)
   # - 4 per Multimodale Cross-Attention (per evitare Out of Memory)
-  batch_size: 8
+  batch_size: 16
   learning_rate:  2.0e-5  # 2e-5 standard per BERT, 1e-4 per Audio/Multimodale
   weight_decay: 0.01
   warmup_ratio: 0.1

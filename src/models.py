@@ -162,7 +162,7 @@ class SotaMultimodalClassifier(nn.Module):
             nn.Linear(128, 2)
         )
 
-    def forward(self, batch):
+    def forward(self, batch,return_attention=False):
         # 1. Feature Raw
         t_raw = self.text_encoder(input_ids=batch['input_ids'], attention_mask=batch['attention_mask']).last_hidden_state
         a_raw = batch['audio_features'].float()
@@ -172,11 +172,11 @@ class SotaMultimodalClassifier(nn.Module):
         a_emb = self.dropout_layer(F.gelu(self.audio_proj(a_raw)))
 
         # 3. Co-Attention
-        t_fused, _ = self.cross_attn_T_A(query=t_emb, key=a_emb, value=a_emb)
+        t_fused, t_attn_weights  = self.cross_attn_T_A(query=t_emb, key=a_emb, value=a_emb)
         t_final = self.norm_t(t_emb + t_fused)
         
         key_padding_mask = (batch['attention_mask'] == 0)
-        a_fused, _ = self.cross_attn_A_T(query=a_emb, key=t_emb, value=t_emb, key_padding_mask=key_padding_mask)
+        a_fused, a_attn_weights  = self.cross_attn_A_T(query=a_emb, key=t_emb, value=t_emb, key_padding_mask=key_padding_mask)
         a_final = self.norm_a(a_emb + a_fused)
 
         # 4. Pooling
@@ -186,8 +186,11 @@ class SotaMultimodalClassifier(nn.Module):
         # 5. Fusion
         fused_vec = self.fusion_gate(t_vec, a_vec)
 
+        logits = self.classifier(fused_vec)
         # 6. Logits
-        return self.classifier(fused_vec)
+        if return_attention:
+            return logits, t_attn_weights,a_attn_weights
+        return logits
 
 # ==============================================================================
 # 5. BUILDER (Lo switch nel Config)

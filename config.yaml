@@ -11,14 +11,14 @@ data:
   dataset_root: "data/dataset"
   
   # File metadati generato da prepare_dataset.py (contiene i path audio per tutti i task)
-  metadata_file: "data/metadata/speech_metadata.csv"
+  metadata_file: "data/metadata/multilingual_meta_full.csv"
   
   # File dei fold per la Cross-Validation
   folds_file: "data/metadata/dataset_folds.csv"
   
   # Cartella dove cercare le trascrizioni (o i fonemi)
   # NOTA: Se usi XPhoneBERT, questo deve puntare alla cartella _phonemes!
-  transcripts_root: "data/transcripts/parakeet-tdt-0.6b-v3"
+  transcripts_root: "data/transcripts/Parakeet_Unified" 
   # Se usi UmBERTo (testo normale), usa: "data/transcripts/WhisperX_large-v3"
   
   # Cartella dove salvare/caricare le feature tabulari (CSV)
@@ -46,6 +46,7 @@ labels:
     CTR: 0
     # MCI: 1      <-- Scommenta per Binary Inclusive
     MILD-AD: 1
+    AD: 1
 
 # ===================================================================
 #                      PARAMETRI DEI MODELLI
@@ -54,7 +55,7 @@ labels:
 model:
   text:
     # Opzione A: Fonemi (XPhoneBERT) - Ottimo per disfluenze
-    name: "Musixmatch/umberto-commoncrawl-cased-v1"
+    name: "xlm-roberta-base"
     # Opzione B: Semantica (UmBERTo) - Ottimo per contenuto
     # name: "Musixmatch/umberto-commoncrawl-cased-v1"
     
@@ -63,7 +64,7 @@ model:
 
   audio:
     # Modello SSL per l'audio
-    pretrained: "jonatasgrosman/wav2vec2-large-xlsr-53-italian"
+    pretrained: "facebook/wav2vec2-large-xlsr-53"
     sample_rate: 16000
     
     # False = Freeze (veloce, meno memoria). True = Fine-Tuning (SOTA, lento).
@@ -80,7 +81,7 @@ training:
   # Batch Size: 
   # - 16 per Solo Testo (XPhoneBERT)
   # - 4 per Multimodale Cross-Attention (per evitare Out of Memory)
-  batch_size: 16
+  batch_size: 8
   learning_rate:  2.0e-5  # 2e-5 standard per BERT, 1e-4 per Audio/Multimodale
   weight_decay: 0.01
   warmup_ratio: 0.1

@@ -60,7 +60,7 @@ model:
     # name: "Musixmatch/umberto-commoncrawl-cased-v1"
     
     max_length: 288 # I fonemi occupano più token delle parole
-    dropout: 0.3
+    dropout: 0.5
 
   audio:
     # Modello SSL per l'audio
@@ -70,7 +70,7 @@ model:
     # False = Freeze (veloce, meno memoria). True = Fine-Tuning (SOTA, lento).
     # Per il multimodale con batch size basso, meglio False inizialmente.
     trainable_encoder: false 
-    dropout: 0.1
+    dropout: 0.3
 
 # ===================================================================
 #                    PARAMETRI DI ADDESTRAMENTO
@@ -81,11 +81,11 @@ training:
   # Batch Size: 
   # - 16 per Solo Testo (XPhoneBERT)
   # - 4 per Multimodale Cross-Attention (per evitare Out of Memory)
-  batch_size: 8
-  learning_rate:  2.0e-5  # 2e-5 standard per BERT, 1e-4 per Audio/Multimodale
+  batch_size: 16
+  learning_rate:  2e-5  # 2e-5 standard per BERT, 1e-4 per Audio/Multimodale
   weight_decay: 0.01
   warmup_ratio: 0.1
-  early_stopping_patience: 10
+  early_stopping_patience: 5
   gradient_checkpointing: false 
   gradient_accumulation_steps: 1
 

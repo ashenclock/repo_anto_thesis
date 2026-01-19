@@ -17,8 +17,9 @@ from src.models import build_model
 # --- CONFIG ---
 CONFIG_FILE = "config.yaml"
 # Percorso corretto del modello
-MODEL_PATH = "outputs/balanced_mix/best_model.pt" # Assicurati che il path sia relativo o assoluto corretto
-TARGET_ID = "EN_adrso234" 
+MODEL_PATH = "outputs/cross_dataset_IT_to_EN/best_model.pt"
+ # Assicurati che il path sia relativo o assoluto corretto
+TARGET_ID = "EN_TEST_adrsdt44"
 
 # Durata di ogni "pagina" del grafico in secondi
 CHUNK_SECONDS = 30 

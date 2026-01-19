@@ -6,3 +6,5 @@ src/__pycache__/
 comandi.txt
 /results_csv
 *.csv
+/plots
+*.txt

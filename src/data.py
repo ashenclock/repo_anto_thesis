@@ -66,26 +66,34 @@ class MultimodalDataset(Dataset):
             return_tensors="pt"
         )
 
-        # 2. AUDIO (Pre-computed tensors)
-        # Path: features_root / Task_XX / SUBJ_001.pt
+        # 2. AUDIO (Caricamento file .pt)
         tensor_path = self.audio_features_root / task_name / f"{clean_id}.pt"
         
         if tensor_path.exists():
             audio_features = torch.load(tensor_path, weights_only=True).float()
         else:
-            # Se manca il file, crea tensore vuoto (o di zeri)
-            # Dimensione dipende dal modello (1024 o 1280 o 768)
-            dim = 1024 
-            if "whisper" in str(self.audio_features_root): dim = 1280
-            elif "base" in str(self.audio_features_root): dim = 768
-            audio_features = torch.zeros(50, dim) # 50 frames fittizi
+            # Fallback se manca il tensore
+            dim = 1024 if "large" in str(self.audio_features_root) else 768
+            audio_features = torch.zeros(50, dim)
 
+        # 3. TARGET (Regressione vs Classificazione)
+        task_type = self.config.get('task', 'classification')
+        target = torch.tensor(0, dtype=torch.long) # Inizializzazione di sicurezza
+
+        if task_type == "regression":
+            # Per la regressione MoCA/MMSE
+            score = row.get('mmse_score', row.get('Score', -1.0))
+            target = torch.tensor(float(score), dtype=torch.float)
+        else:
+            # Per la classificazione
+            diag = row.get('Diagnosis', 'CTR')
+            target = torch.tensor(self.label_mapping.get(diag, 0), dtype=torch.long)
         return {
             "id": full_id, # Ritorniamo l'ID completo per tracciabilità
             "input_ids": text_inputs["input_ids"].flatten(),
             "attention_mask": text_inputs["attention_mask"].flatten(),
             "audio_features": audio_features,
-            "labels": torch.tensor(self.label_mapping.get(row['Diagnosis'], 0), dtype=torch.long)
+            "labels": target
         }
 
 def collate_multimodal(batch):

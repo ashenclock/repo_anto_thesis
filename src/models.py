@@ -152,14 +152,14 @@ class SotaMultimodalClassifier(nn.Module):
 
         # Gated Fusion
         self.fusion_gate = GatedMultimodalUnit(self.common_dim)
-
+        self.output_dim = config.model.get('output_dim', 2)
         # Classificatore
         self.classifier = nn.Sequential(
             nn.Linear(self.common_dim, 128),
             nn.BatchNorm1d(128),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(128, 2)
+            nn.Linear(128, self.output_dim)
         )
 
     def forward(self, batch,return_attention=False):
@@ -187,6 +187,8 @@ class SotaMultimodalClassifier(nn.Module):
         fused_vec = self.fusion_gate(t_vec, a_vec)
 
         logits = self.classifier(fused_vec)
+        if self.output_dim == 1:
+            logits = logits.squeeze(-1) # Fondamentale per regressione
         # 6. Logits
         if return_attention:
             return logits, t_attn_weights,a_attn_weights

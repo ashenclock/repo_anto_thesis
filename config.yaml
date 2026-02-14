@@ -11,7 +11,7 @@ data:
   dataset_root: "data/dataset"
   
   # File metadati generato da prepare_dataset.py (contiene i path audio per tutti i task)
-  metadata_file: "data/metadata/multilingual_meta_full.csv"
+  metadata_file: "data/metadata/mmse_experiment_metadata.csv"
   mmse_scores_file: "data/metadata/adresso_FULL_mmse.csv"
   # File dei fold per la Cross-Validation
   folds_file: "data/metadata/dataset_folds.csv"
@@ -38,7 +38,7 @@ data:
 # 4. "multimodal_cross_attention" -> SOTA Fusione (Cross-Attention)
 modality: "multimodal_cross_attention"
 
-task: "regression"
+task: "regression"  # Opzioni: "classification", "regression"
 
 labels:
   scheme: "binary_strict"

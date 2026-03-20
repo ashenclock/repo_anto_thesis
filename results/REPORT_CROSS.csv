@@ -1,0 +1,4 @@
+Group,Model,Task,Accuracy,F1-Score,Precision,Sensitivity,Specificity,Samples,Macro_Cat
+SOTA (Cross-Dataset),Cross: IT->EN,Cross-Eval,0.79,0.79,0.79,0.77,0.81,71,2_CROSS_ENGLISH
+SOTA (Cross-Dataset),ensemble_multimodal_ALL,Cross-Eval,0.69,0.69,0.69,0.65,0.73,97,2_CROSS_ENGLISH
+SOTA (Cross-Dataset),Cross: EN->IT (Tuned),Cross-Eval,0.69,0.67,0.72,0.46,0.9,97,2_CROSS_ENGLISH

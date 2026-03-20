@@ -1,0 +1,18 @@
+Group,Model,Task,Accuracy,F1-Score,Precision,Sensitivity,Specificity,Samples,Macro_Cat
+Baseline Multimodal,multimodal_text_bert-base-italian-xxl-cased,BEST (Task_01),0.81,0.81,0.82,0.83,0.8,97,1_ITALIAN_BASELINE
+Baseline Tabular,LogReg [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_01),0.78,0.78,0.78,0.76,0.8,97,1_ITALIAN_BASELINE
+Baseline Multimodal,multimodal_text_umberto-commoncrawl-cased-v1,BEST (Task_01),0.78,0.78,0.78,0.74,0.82,97,1_ITALIAN_BASELINE
+Baseline Text-Only,UmBERTo (ASR: Whisper Large v3),BEST (Task_02),0.77,0.77,0.77,0.78,0.76,97,1_ITALIAN_BASELINE
+Baseline Tabular,SVM [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_04),0.76,0.76,0.76,0.76,0.76,96,1_ITALIAN_BASELINE
+Baseline Tabular,LogReg [eGeMAPS],BEST (Task_06),0.73,0.73,0.73,0.76,0.71,96,1_ITALIAN_BASELINE
+Baseline Multimodal,multimodal_text_umberto-commoncrawl-cased-v1,AVG (7 Tasks),0.71,0.71,0.71,0.68,0.73,97,1_ITALIAN_BASELINE
+Baseline Text-Only,UmBERTo (ASR: Whisper Large v3),AVG (7 Tasks),0.71,0.71,0.71,0.65,0.76,97,1_ITALIAN_BASELINE
+Baseline Tabular,XGBoost [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_06),0.71,0.7,0.71,0.58,0.82,96,1_ITALIAN_BASELINE
+Baseline Tabular,LogReg [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.68,0.68,0.69,0.6,0.76,96,1_ITALIAN_BASELINE
+Baseline Tabular,XGBoost [eGeMAPS],BEST (Task_04),0.68,0.67,0.68,0.58,0.76,96,1_ITALIAN_BASELINE
+Baseline Tabular,XGBoost [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.66,0.66,0.66,0.58,0.73,96,1_ITALIAN_BASELINE
+Baseline Tabular,SVM [eGeMAPS],BEST (Task_06),0.66,0.65,0.66,0.53,0.76,96,1_ITALIAN_BASELINE
+Baseline Tabular,SVM [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.64,0.63,0.64,0.52,0.74,96,1_ITALIAN_BASELINE
+Baseline Tabular,LogReg [eGeMAPS],AVG (7 Tasks),0.62,0.62,0.62,0.61,0.63,96,1_ITALIAN_BASELINE
+Baseline Tabular,XGBoost [eGeMAPS],AVG (7 Tasks),0.61,0.6,0.61,0.54,0.66,96,1_ITALIAN_BASELINE
+Baseline Tabular,SVM [eGeMAPS],AVG (7 Tasks),0.55,0.54,0.55,0.5,0.6,96,1_ITALIAN_BASELINE

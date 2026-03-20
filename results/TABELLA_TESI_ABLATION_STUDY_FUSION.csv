@@ -1,0 +1,4 @@
+Strategy,Acc,Sens,Spec
+Patient OR Voting (T=0.50),0.835 ± 0.038,0.978 ± 0.044,0.705 ± 0.064
+Patient Soft Voting (T=0.50),0.803 ± 0.104,0.802 ± 0.131,0.802 ± 0.092
+Patient OR Triage (T=0.35),0.651 ± 0.067,0.978 ± 0.044,0.355 ± 0.165

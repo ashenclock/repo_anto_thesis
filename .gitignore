@@ -1,11 +1,26 @@
-/data
-generate_context.py
-project_context.txt
-/outputs
-src/__pycache__/
-comandi.txt
-/results_csv
-*.csv
-/plots
-*.txt
-*.pdf
+# Data & outputs (too large for git)
+/data/
+/outputs/
+/plots/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+*.err
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Legacy result dirs
+/results_csv/
+/results_csv_combined/
+

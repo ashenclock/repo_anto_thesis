@@ -1,0 +1,14 @@
+Experiment,Type,Samples,Accuracy,Sensitivity,Specificity,F1-Score,Threshold
+Mix/Combined: COMBINED_Task_01-Task_02_prova2 (Patient OR Voting),Patient Level,97,0.84,0.98,0.71,0.83,0.5 (OR Logic)
+Mix/Combined: COMBINED_Task_01-Task_02_prova2 (Audio Level),Data Fusion,194,0.81,0.82,0.81,0.81,0.5
+Mix/Combined: COMBINED_Task_01-Task_02_prova2 (Patient Soft Voting),Patient Level,97,0.8,0.8,0.8,0.8,0.5 (Mean)
+Fusion: multimodal_ALL (Hard Voting),Late Fusion,97,0.79,0.67,0.9,0.79,N/A
+Cross: cross_dataset_IT_to_EN,Single Run,71,0.79,0.77,0.81,0.79,0.5
+Mix/Combined: COMBINED_Task_01-Task_02_prova1 (Patient OR Voting),Patient Level,97,0.78,0.91,0.67,0.78,0.5 (OR Logic)
+Mix/Combined: COMBINED_Task_01-Task_02_prova1 (Audio Level),Data Fusion,194,0.76,0.72,0.79,0.76,0.5
+Mix/Combined: COMBINED_Task_01-Task_02_prova1 (Patient Soft Voting),Patient Level,97,0.75,0.65,0.84,0.75,0.5 (Mean)
+Ensemble: ensemble_cross_EN_to_IT (Tuned),10-Fold Mean (Tuned),97,0.75,0.7,0.8,0.75,0.35
+Ensemble: ensemble_cross_EN_to_IT,10-Fold Mean,97,0.74,0.54,0.92,0.73,0.5
+Cross: cross_dataset_EN_to_IT,Single Run,97,0.7,0.43,0.94,0.68,0.5
+Cross: cross_dataset_EN_to_IT (Tuned),Single Run (Tuned),97,0.69,0.46,0.9,0.67,0.35
+Fusion: multimodal_ALL (Soft Voting),Late Fusion,97,0.69,0.65,0.73,0.69,0.5

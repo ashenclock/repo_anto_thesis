@@ -1,0 +1,23 @@
+Group,Model,Task,Accuracy,F1-Score,Precision,Sensitivity,Specificity,Samples
+SOTA (Combined),Combined (IT) [Patient OR Voting],All Tasks,0.84,0.83,0.87,0.98,0.71,97
+Baseline Multimodal,multimodal_text_bert-base-italian-xxl-cased,BEST (Task_01),0.81,0.81,0.82,0.83,0.8,97
+SOTA (Combined),Combined (IT),Task_01-Task_02_prova2,0.81,0.81,0.81,0.82,0.81,194
+SOTA (Cross-Dataset),Cross: IT->EN,Cross-Eval,0.79,0.79,0.79,0.77,0.81,71
+Baseline Tabular,LogReg [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_01),0.78,0.78,0.78,0.76,0.8,97
+Baseline Multimodal,multimodal_text_umberto-commoncrawl-cased-v1,BEST (Task_01),0.78,0.78,0.78,0.74,0.82,97
+Baseline Text-Only,UmBERTo (ASR: Whisper Large v3),BEST (Task_02),0.77,0.77,0.77,0.78,0.76,97
+Baseline Tabular,SVM [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_04),0.76,0.76,0.76,0.76,0.76,96
+Baseline Tabular,LogReg [eGeMAPS],BEST (Task_06),0.73,0.73,0.73,0.76,0.71,96
+Baseline Multimodal,multimodal_text_umberto-commoncrawl-cased-v1,AVG (7 Tasks),0.71,0.71,0.71,0.68,0.73,97
+Baseline Tabular,XGBoost [WhisperEmb] (ASR: Whisper Large v3),BEST (Task_06),0.71,0.7,0.71,0.58,0.82,96
+Baseline Text-Only,UmBERTo (ASR: Whisper Large v3),AVG (7 Tasks),0.71,0.71,0.71,0.65,0.76,97
+SOTA (Cross-Dataset),ensemble_multimodal_ALL,Cross-Eval,0.69,0.69,0.69,0.65,0.73,97
+SOTA (Cross-Dataset),Cross: EN->IT (Tuned),Cross-Eval,0.69,0.67,0.72,0.46,0.9,97
+Baseline Tabular,LogReg [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.68,0.68,0.69,0.6,0.76,96
+Baseline Tabular,XGBoost [eGeMAPS],BEST (Task_04),0.68,0.67,0.68,0.58,0.76,96
+Baseline Tabular,XGBoost [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.66,0.66,0.66,0.58,0.73,96
+Baseline Tabular,SVM [eGeMAPS],BEST (Task_06),0.66,0.65,0.66,0.53,0.76,96
+Baseline Tabular,SVM [WhisperEmb] (ASR: Whisper Large v3),AVG (7 Tasks),0.64,0.63,0.64,0.52,0.74,96
+Baseline Tabular,LogReg [eGeMAPS],AVG (7 Tasks),0.62,0.62,0.62,0.61,0.63,96
+Baseline Tabular,XGBoost [eGeMAPS],AVG (7 Tasks),0.61,0.6,0.61,0.54,0.66,96
+Baseline Tabular,SVM [eGeMAPS],AVG (7 Tasks),0.55,0.54,0.55,0.5,0.6,96

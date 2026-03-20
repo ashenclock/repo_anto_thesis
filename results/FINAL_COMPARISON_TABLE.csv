@@ -1,0 +1,28 @@
+Group,Model,Task,Accuracy,Sensitivity,Specificity,F1-Score,Samples
+SOTA (Multimodal Combined),COMBINED (Patient OR Voting),All Tasks,0.84,0.98,0.71,0.83,97
+SOTA (Cross-Dataset),cross_dataset_results,Cross-Eval,0.79,0.77,0.81,0.79,71
+SOTA (Cross-Dataset),cross_dataset_results (Thr 0.35),Cross-Eval,0.69,0.46,0.9,0.67,97
+Baseline Multimodal (Single Task),multimodal_text_bert-base-italian-xxl-cased (BEST),Task_01,0.81,0.83,0.8,0.81,97
+Baseline Multimodal (Single Task),multimodal_text_umberto-commoncrawl-cased-v1 (BEST),Task_01,0.78,0.74,0.82,0.78,97
+Baseline Multimodal (Single Task),multimodal_text_bert-base-italian-xxl-cased (AVG 5 Tasks),Average,0.71,0.63,0.79,0.71,97
+Baseline Multimodal (Single Task),multimodal_text_umberto-commoncrawl-cased-v1 (AVG 7 Tasks),Average,0.71,0.68,0.73,0.71,97
+Baseline Multimodal (Single Task),ensemble_multimodal_ALL (AVG 1 Tasks),Average,0.69,0.65,0.73,0.69,97
+Baseline Multimodal (Single Task),ensemble_multimodal_ALL (BEST),N/A,0.69,0.65,0.73,0.69,97
+Baseline Text-Only,text_umberto-commoncrawl-cased-v1_ASR-WhisperX_large-v3 (BEST),Task_02,0.77,0.78,0.76,0.77,97
+Baseline Text-Only,text_umberto-commoncrawl-cased-v1_ASR-WhisperX_large-v3 (AVG 7 Tasks),Average,0.71,0.65,0.76,0.71,97
+Other,Task_01 (BEST),N/A,0.78,0.76,0.8,0.78,97
+Other,Task_04 (BEST),N/A,0.76,0.76,0.76,0.76,96
+Other,ensemble_results (AVG 1 Tasks),Average,0.74,0.54,0.92,0.73,97
+Other,ensemble_results (BEST),N/A,0.74,0.54,0.92,0.73,97
+Other,Task_06 (BEST),N/A,0.73,0.76,0.71,0.73,96
+Other,Task_07 (BEST),N/A,0.72,0.73,0.71,0.72,96
+Other,Task_06 (AVG 6 Tasks),Average,0.69,0.58,0.78,0.68,96
+Other,Task_02 (BEST),N/A,0.68,0.59,0.76,0.68,97
+Other,Task_04 (AVG 6 Tasks),Average,0.67,0.59,0.74,0.66,96
+Other,Task_01 (AVG 6 Tasks),Average,0.67,0.63,0.7,0.67,97
+Other,Task_05 (BEST),N/A,0.67,0.6,0.73,0.67,96
+Other,Task_07 (AVG 6 Tasks),Average,0.64,0.62,0.66,0.64,96
+Other,Task_03 (BEST),N/A,0.63,0.54,0.71,0.63,97
+Other,Task_02 (AVG 6 Tasks),Average,0.6,0.58,0.61,0.59,97
+Other,Task_05 (AVG 6 Tasks),Average,0.59,0.43,0.74,0.58,96
+Other,Task_03 (AVG 6 Tasks),Average,0.53,0.47,0.58,0.53,97

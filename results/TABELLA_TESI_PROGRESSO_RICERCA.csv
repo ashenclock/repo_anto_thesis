@@ -1,0 +1,5 @@
+Fase Sperimentale,Accuracy,F1,Sens,Spec
+3. Multimodal (Single Task),0.81 ± 0.09,0.81 ± 0.09,0.83 ± 0.13,0.80 ± 0.14
+1. Text-Only (Linguistic),0.77 ± 0.04,0.77 ± 0.04,0.72 ± 0.05,0.82 ± 0.07
+2. Acoustic-Only (Prosodic),0.77 ± 0.04,0.77 ± 0.04,0.72 ± 0.05,0.82 ± 0.07
+4. Task Fusion (T01+T02),0.84 ± 0.04,0.83 ± 0.04,0.98 ± 0.04,0.71 ± 0.06

@@ -1,0 +1,3 @@
+Group,Model,Task,Accuracy,F1-Score,Precision,Sensitivity,Specificity,Samples,Macro_Cat
+SOTA (Combined),Combined (IT) [Patient OR Voting],All Tasks,0.84,0.83,0.87,0.98,0.71,97,3_MIXED
+SOTA (Combined),Combined (IT),Task_01-Task_02_prova2,0.81,0.81,0.81,0.82,0.81,194,3_MIXED

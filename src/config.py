@@ -1,6 +1,7 @@
 import yaml
 from pathlib import Path
 
+
 class Config:
     def __init__(self, data: dict):
         for key, value in data.items():
@@ -9,7 +10,6 @@ class Config:
             else:
                 setattr(self, key, value)
 
-    # --- FIX: Aggiunto metodo get per compatibilità ---
     def get(self, key, default=None):
         return getattr(self, key, default)
 
@@ -25,10 +25,11 @@ class Config:
                 result[key] = value
         return result
 
+
 def load_config(config_path: str | Path) -> Config:
     path = Path(config_path)
     if not path.exists():
-        raise FileNotFoundError(f"Config non trovato: {path.resolve()}")
+        raise FileNotFoundError(f"Config not found: {path.resolve()}")
     with open(path, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     return Config(data)

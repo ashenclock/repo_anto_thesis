@@ -1,0 +1,19 @@
+Category,Experiment Name,Accuracy,Sensitivity,Specificity,F1-Score
+SOTA Combined,Combined: COMBINED_Task_01-Task_02_prova2,0.81,0.82,0.81,0.81
+SOTA Combined,Combined: COMBINED_Task_01-Task_02_prova1,0.76,0.72,0.79,0.76
+Cross-Dataset,Cross: cross_dataset_IT_to_EN,0.79,0.77,0.81,0.79
+Ensemble,Ensemble: ensemble_cross_EN_to_IT,0.74,0.54,0.92,0.73
+Cross-Dataset,Cross: cross_dataset_EN_to_IT,0.7,0.43,0.94,0.68
+Fusion Manuale,Fusion: multimodal_ALL,0.79,0.67,0.9,0.79
+Baseline Tabular,Baseline Tabular: tabular_lr_whisper_large_v3 (BEST: Task_01),0.78,0.76,0.8,0.78
+Baseline Tabular,Baseline Tabular: tabular_svm_whisper_large_v3 (BEST: Task_04),0.76,0.76,0.76,0.76
+Baseline Tabular,Baseline Tabular: tabular_lr_egemaps (BEST: Task_06),0.73,0.76,0.71,0.73
+Baseline Tabular,Baseline Tabular: tabular_xgboost_whisper_large_v3 (BEST: Task_06),0.71,0.58,0.82,0.7
+Baseline Tabular,Baseline Tabular: tabular_lr_whisper_large_v3 (AVG 7 Tasks),0.68,0.6,0.76,0.68
+Baseline Tabular,Baseline Tabular: tabular_xgboost_egemaps (BEST: Task_04),0.68,0.58,0.76,0.67
+Baseline Tabular,Baseline Tabular: tabular_svm_egemaps (BEST: Task_06),0.66,0.53,0.76,0.65
+Baseline Tabular,Baseline Tabular: tabular_xgboost_whisper_large_v3 (AVG 7 Tasks),0.66,0.58,0.73,0.66
+Baseline Tabular,Baseline Tabular: tabular_svm_whisper_large_v3 (AVG 7 Tasks),0.64,0.52,0.74,0.63
+Baseline Tabular,Baseline Tabular: tabular_lr_egemaps (AVG 7 Tasks),0.62,0.61,0.63,0.62
+Baseline Tabular,Baseline Tabular: tabular_xgboost_egemaps (AVG 7 Tasks),0.61,0.54,0.66,0.6
+Baseline Tabular,Baseline Tabular: tabular_svm_egemaps (AVG 7 Tasks),0.55,0.5,0.6,0.54

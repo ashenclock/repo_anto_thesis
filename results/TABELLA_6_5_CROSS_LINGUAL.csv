@@ -1,0 +1,5 @@
+Direction,Strategy,Thr,Acc,F1,Sens,Spec,Prec
+IT -> EN,Cross (Zero-Shot),0.5,0.79,0.79,0.77,0.81,0.7888779417362681
+EN -> IT,Cross (Standard),0.5,0.70,0.68,0.43,0.94,0.7534132070214544
+EN -> IT,Cross (Tuned Thr 0.35),0.35,0.69,0.67,0.46,0.90,0.7236711306698238
+EN -> IT,Ensemble Multimodal ALL,0.5,0.74,0.73,0.54,0.92,0.7722182723071455

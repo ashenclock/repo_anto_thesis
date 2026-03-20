@@ -1,0 +1,3 @@
+Test Set,Strategy,Acc,F1,Sens,Spec,Prec
+Italian (Target),Mixed Training (Weighted),0.75,0.75,0.78,0.73,0.7550000000000001
+English (Source),Mixed Training (Weighted),0.79,0.79,0.74,0.83,0.7905606717226435

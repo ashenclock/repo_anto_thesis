@@ -1,0 +1,5 @@
+Method,Accuracy,F1-Score,Sens (Recall),Specificity
+OR Voting (Max Prob),0.80 ± 0.13,0.79 ± 0.15,0.94 ± 0.10,0.68 ± 0.24
+Meta-Classifier (XGBoost),0.79 ± 0.12,0.78 ± 0.14,0.76 ± 0.24,0.82 ± 0.29
+Soft Voting (Mean),0.78 ± 0.12,0.78 ± 0.12,0.74 ± 0.12,0.82 ± 0.19
+OR Triage (T=0.35),0.53 ± 0.08,0.40 ± 0.13,1.00 ± 0.00,0.10 ± 0.14
